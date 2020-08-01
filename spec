@@ -17,7 +17,6 @@ beginseg
 endseg
 
 beginwave
-  name    "test"
+  name    "demo"
   include "code"
-  include "sheep"
 endwave

@@ -5,7 +5,7 @@ INCDIR = include
 OBJDIR = build
 DATADIR = data
 
-TARGET = test
+TARGET = demo
 
 CODEFILES = $(wildcard $(SRCDIR)\*.c) 
 CODEOBJECTS = $(subst $(SRCDIR),$(OBJDIR),$(CODEFILES:.c=.o)) $(NUOBJ)
