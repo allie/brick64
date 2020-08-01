@@ -1,3 +1,4 @@
 Demo project.
 
-Needs the Nintendo 64 developer kit to compile.
+Needs the N64 developer kit to compile.
+Assuming everything is in its standard location, run `build.bat` to build the ROM.
