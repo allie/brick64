@@ -6,13 +6,16 @@
 #define MAX_ZOOM 100.0f
 #define MIN_ZOOM 5.0f
 
-static float zoom = 25.0f;
-static float rot = 0.0f;
+static float zoom;
+static float rot;
 static float cx;
 static float cz;
 
 void game_init(void) {
-
+  zoom = 25.0f;
+  rot = 0.0f;
+  cx = 0.0f;
+  cz = 0.0f;
 }
 
 void game_update(void) {
