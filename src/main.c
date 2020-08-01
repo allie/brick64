@@ -1,5 +1,4 @@
 #include <nusys.h>
-#include <mgk/App.h>
 #include "game.h"
 
 void vsyncCallback(int pending) {
@@ -12,6 +11,7 @@ void vsyncCallback(int pending) {
 
 void mainproc(void* dummy) {
   nuGfxInit();
+  nuContInit();
 
   game_init();
 

@@ -16,12 +16,6 @@ beginseg
 	include "$(ROOT)/usr/lib/PR/gspS2DEX2.fifo.o"
 endseg
 
-beginseg
-  name    "sheep"
-  flags   RAW
-  include "build/sheep.nvf"
-endseg
-
 beginwave
   name    "test"
   include "code"

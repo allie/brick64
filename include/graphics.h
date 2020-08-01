@@ -6,14 +6,22 @@
 #define SCREEN_W 320
 #define SCREEN_H 240
 
+#define MAX_TASKS 2
 #define GLIST_LENGTH 2048
 
-Gfx glist[GLIST_LENGTH];
-Gfx* glistp;
+typedef struct {
+  Mtx model;
+  Mtx view;
+  Mtx projection;
+} MVP;
 
-void graphics_init_RCP(Gfx *glistp);
-void graphics_draw_rect(s32 x, s32 y, s32 w, s32 h, u8 r, u8 g, u8 b);
-void graphics_clear_bg(u8 r, u8 g, u8 b);
-void graphics_draw_sheep(void);
+extern MVP mvp[MAX_TASKS];
+extern Gfx glist[MAX_TASKS][GLIST_LENGTH];
+extern Gfx* glistp;
+extern u32 task_num;
+
+void graphics_init_RCP();
+void graphics_clear(u8 r, u8 g, u8 b);
+void graphics_draw_model(void);
 
 #endif

@@ -1,50 +1,68 @@
 #include <nusys.h>
 #include "game.h"
 #include "graphics.h"
+#include "camera.h"
 
-static u8 r;
-static u8 g;
-static u8 b;
+#define MAX_ZOOM 100.0f
+#define MIN_ZOOM 5.0f
 
-static int x, xdir;
-static int y, ydir;
+static float zoom = 25.0f;
+static float rot = 0.0f;
+static float cx;
+static float cz;
 
 void game_init(void) {
-  r = 0;
-  g = 0;
-  b = 0;
-  x = 0;
-  y = 0;
-  xdir = 1;
-  ydir = 1;
+
 }
 
 void game_update(void) {
-  r++;
-  g += 4;
-  b += 7;
-
-  x += 3 * xdir;
-  y += 3 * ydir;
-
-  if ((y + 32 >= SCREEN_H) || (y <= 0)) {
-    ydir *= -1;
+  if (nuContData[0].stick_y > 50) {
+    zoom -= 1.0f;
   }
 
-  if ((x + 32 >= SCREEN_W) || (x <= 0)) {
-    xdir *= -1;
+  if (nuContData[0].stick_y < -50) {
+    zoom += 1.0f;
   }
+
+  if (zoom > MAX_ZOOM) {
+    zoom = MAX_ZOOM;
+  }
+
+  if (zoom < MIN_ZOOM) {
+    zoom = MIN_ZOOM;
+  }
+
+  cx = sinf(rot) * zoom;
+  cz = cosf(rot) * zoom;
+
+  rot += 0.025f;
 }
 
 void game_draw(void) {
-  glistp = glist;
+  MVP* mvpp = &mvp[task_num];
+  glistp = &glist[task_num][0];
 
-  graphics_init_RCP(glistp);
-  graphics_clear_bg(r, g, b);
-  graphics_draw_rect(x, y, 32, 32, 255 - r, 255 - g, 255 - b);
-  graphics_draw_sheep();
+  graphics_init_RCP();
+  graphics_clear(100, 149, 237);
+
+  camera_set_view_mtx(
+    mvpp,
+    cx, 20, cz,
+    0, 0, 0
+  );
+
+  graphics_draw_model();
+
   gDPFullSync(glistp++);
   gSPEndDisplayList(glistp++);
 
-  nuGfxTaskStart(glist, (s32)(glistp - glist) * sizeof(Gfx), NU_GFX_UCODE_F3DEX, NU_SC_SWAPBUFFER);
+  nuGfxTaskStart(
+    &glist[task_num][0],
+    (s32)(glistp - glist[task_num]) * sizeof(Gfx),
+    NU_GFX_UCODE_F3DEX,
+    NU_SC_SWAPBUFFER
+  );
+
+  task_num++;
+  task_num %= MAX_TASKS;
 }
