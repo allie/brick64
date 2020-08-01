@@ -42,6 +42,7 @@ void game_draw(void) {
   graphics_init_RCP(glistp);
   graphics_clear_bg(r, g, b);
   graphics_draw_rect(x, y, 32, 32, 255 - r, 255 - g, 255 - b);
+  graphics_draw_sheep();
   gDPFullSync(glistp++);
   gSPEndDisplayList(glistp++);
 

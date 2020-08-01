@@ -1,6 +1,9 @@
 #include <nusys.h>
 #include "graphics.h"
 
+#include "geo.inc.c"
+#include "model.inc.c"
+
 static Vp viewport = {
   SCREEN_W * 2, SCREEN_H * 2, G_MAXZ, 0,
   SCREEN_W * 2, SCREEN_H * 2, G_MAXZ, 0
@@ -49,4 +52,8 @@ void graphics_draw_rect(s32 x, s32 y, s32 w, s32 h, u8 r, u8 g, u8 b) {
   gDPSetFillColor(glistp++, (GPACK_RGBA5551(r, g, b, 1) << 16 | GPACK_RGBA5551(r, g, b, 1)));
   gDPFillRectangle(glistp++, x, y, x + w, y + h);
   gDPPipeSync(glistp++);
+}
+
+void graphics_draw_sheep(void) {
+  gSPDisplayList(glistp++, OS_K0_TO_PHYSICAL(model_dl_opaque));
 }
