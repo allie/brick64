@@ -1,10 +1,25 @@
 #include <nusys.h>
+#include "camera.h"
 #include "graphics.h"
 
-void camera_set_view_mtx(MVP* mvpp, float xv, float yv, float zv, float xl, float yl, float zl) {
-  u16 persp_norm;
-  LookAt lookat;
+Camera camera;
 
+void camera_init() {
+  camera.pos.x = 0;
+  camera.pos.y = 20;
+  camera.pos.z = 50;
+  camera.target.x = 0;
+  camera.target.y = 0;
+  camera.target.z = 0;
+  camera.up.x = 0;
+  camera.up.y = 1;
+  camera.up.z = 0;
+}
+
+void camera_lookat_target(MVP* mvpp) {
+  u16 persp_norm;
+
+  // Initialize the projection matrix
   guPerspective(
     &mvpp->projection,
     &persp_norm,
@@ -14,27 +29,27 @@ void camera_set_view_mtx(MVP* mvpp, float xv, float yv, float zv, float xl, floa
     10000,
     1.0
   );
+  gSPPerspNormalize(glistp++, persp_norm);
 
-  guLookAtReflect(
-    &mvpp->view,
-    &lookat,
-    xv, yv, zv,
-    xl, yl, zl,
-    0, 1, 0
+  // Initialize the model view matrix
+  guLookAt(
+    &mvpp->modelview,
+    camera.pos.x, camera.pos.y, camera.pos.z,
+    camera.target.x, camera.target.y, camera.target.z,
+    camera.up.x, camera.up.y, camera.up.z
   );
 
-  gSPPerspNormalize(glistp++, persp_norm);
-  gSPLookAt(glistp++, &lookat);
-
+  // Load the projection matrix into the matrix stack
   gSPMatrix(
     glistp++,
-    &(mvpp->projection),
+    OS_K0_TO_PHYSICAL(&(mvpp->projection)),
     G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH
   );
 
+  // Load the model view matrix into the matrix stack
   gSPMatrix(
     glistp++,
-    &(mvpp->view),
-    G_MTX_PROJECTION | G_MTX_MUL | G_MTX_NOPUSH
+    OS_K0_TO_PHYSICAL(&(mvpp->modelview)),
+    G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH
   );
 }

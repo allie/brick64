@@ -10,8 +10,7 @@
 #define GLIST_LENGTH 2048
 
 typedef struct {
-  Mtx model;
-  Mtx view;
+  Mtx modelview;
   Mtx projection;
 } MVP;
 

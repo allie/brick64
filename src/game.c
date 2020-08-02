@@ -16,6 +16,8 @@ void game_init(void) {
   rot = 0.0f;
   cx = 0.0f;
   cz = 0.0f;
+
+  camera_init();
 }
 
 void game_update(void) {
@@ -48,11 +50,9 @@ void game_draw(void) {
   graphics_init_RCP();
   graphics_clear(100, 149, 237);
 
-  camera_set_view_mtx(
-    mvpp,
-    cx, 20, cz,
-    0, 0, 0
-  );
+  camera.pos.x = cx;
+  camera.pos.z = cz;
+  camera_lookat_target(mvpp);
 
   graphics_draw_model();
 

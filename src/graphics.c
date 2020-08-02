@@ -9,23 +9,24 @@ Gfx* glistp;
 u32 task_num = 0;
 
 static Vp viewport = {
-  SCREEN_W * 2, SCREEN_H * 2, G_MAXZ, 0,
-  SCREEN_W * 2, SCREEN_H * 2, G_MAXZ, 0
+  SCREEN_W * 2, SCREEN_H * 2, G_MAXZ / 2, 0,
+  SCREEN_W * 2, SCREEN_H * 2, G_MAXZ / 2, 0
 };
 
 static Gfx rsp_init_dl[] = {
   gsSPViewport(&viewport),
-  gsSPClearGeometryMode(G_ZBUFFER | G_SHADE | G_SHADING_SMOOTH | G_CULL_BOTH | G_LIGHTING),
+  gsSPClearGeometryMode(0xFFFFFFFF),
+  gsSPSetGeometryMode(G_ZBUFFER | G_SHADE | G_SHADING_SMOOTH | G_CULL_BACK),
   gsSPTexture(0, 0, 0, 0, G_OFF),
-  gsSPEndDisplayList()
+  gsSPEndDisplayList(),
 };
 
 static Gfx rdp_init_dl[] = {
-  gsDPSetScissor(G_SC_NON_INTERLACE, 0, 0, SCREEN_W, SCREEN_H),
-  gsDPSetColorDither(G_CD_BAYER),
   gsDPSetRenderMode(G_RM_OPA_SURF, G_RM_OPA_SURF2),
-  gsDPPipeSync(),
-  gsSPEndDisplayList()
+  gsDPSetCombineMode(G_CC_SHADE, G_CC_SHADE),
+  gsDPSetScissor(G_SC_NON_INTERLACE, 0,0, SCREEN_W,SCREEN_H),
+  gsDPSetColorDither(G_CD_BAYER),
+  gsSPEndDisplayList(),
 };
 
 // Initialize RCP
@@ -53,5 +54,10 @@ void graphics_clear(u8 r, u8 g, u8 b) {
 }
 
 void graphics_draw_model(void) {
-  gSPDisplayList(glistp++, OS_K0_TO_PHYSICAL(model_dl_opaque));
+  gDPSetCycleType(glistp++, G_CYC_2CYCLE);
+  gDPSetRenderMode(glistp++, G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2);
+  gSPClearGeometryMode(glistp++, 0xFFFFFFFF);
+  gSPSetGeometryMode(glistp++, G_SHADE | G_SHADING_SMOOTH | G_ZBUFFER);
+  gSPDisplayList(glistp++, model_dl_opaque);
+  gDPPipeSync(glistp++);
 }

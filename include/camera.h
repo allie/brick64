@@ -2,7 +2,18 @@
 #define CAMERA_H
 
 #include <nusys.h>
+#include "common.h"
+#include "graphics.h"
 
-void camera_set_view_mtx(MVP* mvpp, float xv, float yv, float zv, float xl, float yl, float zl);
+typedef struct {
+  Vec3f pos;
+  Vec3f target;
+  Vec3f up;
+} Camera;
+
+extern Camera camera;
+
+void camera_init();
+void camera_lookat_target(MVP* mvpp);
 
 #endif
