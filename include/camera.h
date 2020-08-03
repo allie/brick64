@@ -2,18 +2,27 @@
 #define CAMERA_H
 
 #include <nusys.h>
-#include "common.h"
+#include "vector.h"
 #include "graphics.h"
 
 typedef struct {
+  float fov;
   Vec3f pos;
-  Vec3f target;
+  Vec3f world_up;
   Vec3f up;
+  Vec3f front;
+  Vec3f right;
+  float pitch;
+  float yaw;
+  Vec3f target;
 } Camera;
 
 extern Camera camera;
 
 void camera_init();
-void camera_lookat_target(MVP* mvpp);
+void camera_look(MVP* mvpp);
+void camera_move(Vec3f velocity);
+void camera_move_to(Vec3f pos);
+void camera_rotate(Vec2f rot);
 
 #endif

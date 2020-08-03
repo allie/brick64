@@ -53,11 +53,11 @@ void graphics_clear(u8 r, u8 g, u8 b) {
   gDPPipeSync(glistp++);
 }
 
-void graphics_draw_model(void) {
+void graphics_draw_cube() {
   gDPSetCycleType(glistp++, G_CYC_2CYCLE);
   gDPSetRenderMode(glistp++, G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2);
   gSPClearGeometryMode(glistp++, 0xFFFFFFFF);
   gSPSetGeometryMode(glistp++, G_SHADE | G_SHADING_SMOOTH | G_ZBUFFER);
-  gSPDisplayList(glistp++, model_dl_opaque);
+  gSPDisplayList(glistp++, cube_dl_opaque);
   gDPPipeSync(glistp++);
 }

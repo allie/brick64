@@ -1,46 +1,60 @@
 #include <nusys.h>
+#include "common.h"
 #include "game.h"
 #include "graphics.h"
 #include "camera.h"
 
-#define MAX_ZOOM 100.0f
-#define MIN_ZOOM 5.0f
-
-static float zoom;
-static float rot;
-static float cx;
-static float cz;
+#define ROT_VELOCITY 2.0f
+#define MOVE_VELOCITY 2.0f
 
 void game_init(void) {
-  zoom = 25.0f;
-  rot = 0.0f;
-  cx = 0.0f;
-  cz = 0.0f;
-
   camera_init();
 }
 
 void game_update(void) {
-  if (nuContData[0].stick_y > 50) {
-    zoom -= 1.0f;
+  Vec2f rot;
+  Vec3f velocity;
+  vec2f_set(rot, 0, 0);
+  vec3f_set(velocity, 0, 0, 0);
+
+  // Rotate the camera if the C buttons are pressed
+  if (nuContData[0].button & L_CBUTTONS) {
+    rot.x = -1;
   }
 
-  if (nuContData[0].stick_y < -50) {
-    zoom += 1.0f;
+  if (nuContData[0].button & R_CBUTTONS) {
+    rot.x = 1;
   }
 
-  if (zoom > MAX_ZOOM) {
-    zoom = MAX_ZOOM;
+  if (nuContData[0].button & U_CBUTTONS) {
+    rot.y = 1;
   }
 
-  if (zoom < MIN_ZOOM) {
-    zoom = MIN_ZOOM;
+  if (nuContData[0].button & D_CBUTTONS) {
+    rot.y = -1;
   }
 
-  cx = sinf(rot) * zoom;
-  cz = cosf(rot) * zoom;
+  if (fabs(rot.x) > EPSILON || fabs(rot.y) > EPSILON) {
+    vec2f_mag(rot, ROT_VELOCITY);
 
-  rot += 0.025f;
+    camera_rotate(rot);
+  }
+
+  // Move the camera if the joystick is moved
+  if (nuContData[0].stick_y > DEADZONE || nuContData[0].stick_y < -DEADZONE) {
+    velocity.z = nuContData[0].stick_y;
+  }
+
+  if (nuContData[0].stick_x > DEADZONE || nuContData[0].stick_x < -DEADZONE) {
+    velocity.x = nuContData[0].stick_x;
+  }
+
+  if (fabs(velocity.z) > EPSILON || fabs(velocity.x) > EPSILON) {
+    vec3f_norm(velocity);
+    vec3f_mag(velocity, MOVE_VELOCITY);
+
+    camera_move(velocity);
+  }
 }
 
 void game_draw(void) {
@@ -50,11 +64,9 @@ void game_draw(void) {
   graphics_init_RCP();
   graphics_clear(100, 149, 237);
 
-  camera.pos.x = cx;
-  camera.pos.z = cz;
-  camera_lookat_target(mvpp);
+  camera_look(mvpp);
 
-  graphics_draw_model();
+  graphics_draw_cube();
 
   gDPFullSync(glistp++);
   gSPEndDisplayList(glistp++);
