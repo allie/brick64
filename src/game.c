@@ -4,8 +4,8 @@
 #include "graphics.h"
 #include "camera.h"
 
-#define ROT_VELOCITY 2.0f
-#define MOVE_VELOCITY 2.0f
+#define ROT_VELOCITY 10.0f
+#define MOVE_VELOCITY 0.5f
 
 void game_init(void) {
   camera_init();

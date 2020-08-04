@@ -32,13 +32,13 @@ void camera_init() {
   camera.fov = 45;
 
   // Initialize camera position
-  vec3f_set(camera.pos, 0, 20, 50);
+  vec3f_set(camera.pos, 0, 0, 500);
 
   // Initialize world_up vector
   vec3f_set(camera.world_up, 0, 1, 0);
 
   // Initialize camera rotation
-  camera.pitch = -20;
+  camera.pitch = 0;
   camera.yaw = -90;
 
   recalc_orientation();

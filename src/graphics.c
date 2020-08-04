@@ -1,7 +1,7 @@
 #include <nusys.h>
 #include "graphics.h"
 
-#include "models/cube.h"
+#include "models/sphere.h"
 
 MVP mvp[MAX_TASKS];
 Gfx glist[MAX_TASKS][GLIST_LENGTH];
@@ -58,6 +58,6 @@ void graphics_draw_cube() {
   gDPSetRenderMode(glistp++, G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2);
   gSPClearGeometryMode(glistp++, 0xFFFFFFFF);
   gSPSetGeometryMode(glistp++, G_SHADE | G_SHADING_SMOOTH | G_ZBUFFER);
-  gSPDisplayList(glistp++, cube_dl_opaque);
+  gSPDisplayList(glistp++, model_Sphere_mesh);
   gDPPipeSync(glistp++);
 }
