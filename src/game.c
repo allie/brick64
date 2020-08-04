@@ -66,7 +66,7 @@ void game_draw(void) {
 
   camera_look(mvpp);
 
-  graphics_draw_cube();
+  graphics_draw_sphere();
 
   gDPFullSync(glistp++);
   gSPEndDisplayList(glistp++);

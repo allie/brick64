@@ -53,7 +53,7 @@ void graphics_clear(u8 r, u8 g, u8 b) {
   gDPPipeSync(glistp++);
 }
 
-void graphics_draw_cube() {
+void graphics_draw_sphere() {
   gDPSetCycleType(glistp++, G_CYC_2CYCLE);
   gDPSetRenderMode(glistp++, G_RM_AA_ZB_OPA_SURF, G_RM_AA_ZB_OPA_SURF2);
   gSPClearGeometryMode(glistp++, 0xFFFFFFFF);

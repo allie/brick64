@@ -22,6 +22,6 @@ extern u32 task_num;
 
 void graphics_init_RCP();
 void graphics_clear(u8 r, u8 g, u8 b);
-void graphics_draw_cube();
+void graphics_draw_sphere();
 
 #endif
