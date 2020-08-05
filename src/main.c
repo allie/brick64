@@ -1,7 +1,7 @@
 #include <nusys.h>
 #include "game.h"
 
-void vsyncCallback(int pending) {
+static void vsync_callback(int pending) {
   game_update();
 
   if (pending < 1) {
@@ -15,7 +15,7 @@ void mainproc(void* dummy) {
 
   game_init();
 
-  nuGfxFuncSet((NUGfxFunc)vsyncCallback);
+  nuGfxFuncSet((NUGfxFunc)vsync_callback);
   nuGfxDisplayOn();
 
   while (1);

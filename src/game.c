@@ -4,8 +4,8 @@
 #include "graphics.h"
 #include "camera.h"
 
-#define ROT_VELOCITY 10.0f
-#define MOVE_VELOCITY 0.5f
+#define ROT_VELOCITY 1.0f
+#define MOVE_VELOCITY 20.0f
 
 void game_init(void) {
   camera_init();
@@ -66,7 +66,7 @@ void game_draw(void) {
 
   camera_look(mvpp);
 
-  graphics_draw_sphere();
+  graphics_draw_sheep();
 
   gDPFullSync(glistp++);
   gSPEndDisplayList(glistp++);
