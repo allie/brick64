@@ -18,6 +18,15 @@ static void recalc_orientation() {
   );
   vec3f_norm(camera.front);
 
+  // Calculate forward vector
+  vec3f_set(
+    camera.forward,
+    cos(radians(camera.yaw)),
+    0,
+    sin(radians(camera.yaw))
+  );
+  vec3f_norm(camera.forward);
+
   // Calculate right vector
   vec3f_cross(camera.right, camera.front, camera.world_up);
   vec3f_norm(camera.right);
@@ -29,10 +38,12 @@ static void recalc_orientation() {
 
 void camera_init() {
   // Initialize field of view
-  camera.fov = 45;
+  camera.fov = 120;
+  // camera.fov = 60;
 
   // Initialize camera position
-  vec3f_set(camera.pos, 0, 0, 500);
+  vec3f_set(camera.pos, 0, 0, 1350);
+  // vec3f_set(camera.pos, 0, 0, 1850);
 
   // Initialize world_up vector
   vec3f_set(camera.world_up, 0, 1, 0);
@@ -46,22 +57,22 @@ void camera_init() {
 
 // Move the camera in a particular direction
 void camera_move(Vec3f velocity) {
-  Vec3f move_front;
+  Vec3f move_forward;
   Vec3f move_right;
   Vec3f move_up;
 
   vec3f_copy(move_right, camera.right);
   vec3f_mag(move_right, velocity.x);
 
-  vec3f_copy(move_up, camera.up);
+  vec3f_copy(move_up, camera.world_up);
   vec3f_mag(move_up, velocity.y);
 
-  vec3f_copy(move_front, camera.front);
-  vec3f_mag(move_front, velocity.z);
+  vec3f_copy(move_forward, camera.forward);
+  vec3f_mag(move_forward, velocity.z);
 
   vec3f_add(camera.pos, move_right);
   vec3f_add(camera.pos, move_up);
-  vec3f_add(camera.pos, move_front);
+  vec3f_add(camera.pos, move_forward);
 }
 
 // Move the camera to a given position
@@ -73,6 +84,12 @@ void camera_move_to(Vec3f pos) {
 void camera_rotate(Vec2f rot) {
   camera.yaw += rot.x;
   camera.pitch += rot.y;
+  recalc_orientation();
+}
+
+void camera_rotate_to(Vec2f rot) {
+  camera.yaw = rot.x - 90;
+  camera.pitch = rot.y;
   recalc_orientation();
 }
 

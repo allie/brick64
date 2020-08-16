@@ -1,6 +1,8 @@
 #ifndef VECTOR_H
 #define VECTOR_H
 
+#include <math.h>
+
 // 2-dimensional vector
 typedef struct {
   float x, y;

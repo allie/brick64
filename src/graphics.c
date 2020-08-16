@@ -1,7 +1,6 @@
 #include <nusys.h>
 #include "graphics.h"
-
-#include "models/sheep.h"
+#include "object.h"
 
 MVP mvp[MAX_TASKS];
 Gfx glist[MAX_TASKS][GLIST_LENGTH];
@@ -22,14 +21,12 @@ static Gfx rsp_init_dl[] = {
 
 static Gfx rdp_init_dl[] = {
   gsDPSetScissor(G_SC_NON_INTERLACE, 0, 0, SCREEN_W, SCREEN_H),
-  gsDPSetCombineKey(G_CK_NONE),
-  gsDPSetAlphaCompare(G_AC_NONE),
   gsDPSetRenderMode(G_RM_NOOP, G_RM_NOOP2),
   gsDPSetColorDither(G_CD_DISABLE),
   gsDPSetAlphaDither(G_AD_DISABLE),
-  gsDPSetTextureFilter(G_TF_POINT),
+  gsDPSetTextureFilter(G_TF_AVERAGE),
   gsDPSetTextureConvert(G_TC_FILT),
-  gsDPSetTexturePersp(G_TP_NONE),
+  gsDPSetTexturePersp(G_TP_PERSP),
   gsDPPipeSync(),
   gsSPEndDisplayList(),
 };
@@ -58,11 +55,45 @@ void graphics_clear(u8 r, u8 g, u8 b) {
   gDPPipeSync(glistp++);
 }
 
-void graphics_draw_sheep() {
+void graphics_start_object(Object* object, bool xlu) {
   gDPSetCycleType(glistp++, G_CYC_1CYCLE);
   gSPSetGeometryMode(glistp++, G_SHADE | G_SHADING_SMOOTH | G_LIGHTING | G_CULL_BACK | G_ZBUFFER);
   gDPSetCombineMode(glistp++, G_CC_SHADE, G_CC_SHADE);
-  gDPSetRenderMode(glistp++, G_RM_ZB_OPA_SURF, G_RM_ZB_OPA_SURF2);
-  gSPDisplayList(glistp++, sheep_Body_mesh);
+  gDPSetRenderMode(
+    glistp++,
+    xlu ? G_RM_AA_ZB_XLU_SURF : G_RM_AA_ZB_OPA_SURF,
+    xlu ? G_RM_AA_ZB_XLU_SURF2 : G_RM_AA_ZB_OPA_SURF2
+  );
+  guPosition(
+    &object->transform,
+    vec3f_unpack(object->rot),
+    object->scale,
+    vec3f_unpack(object->pos)
+  );
+  gSPMatrix(glistp++, &object->transform, G_MTX_MODELVIEW | G_MTX_PUSH | G_MTX_MUL);
+}
+
+void graphics_start_textured_object(Object* object, bool xlu) {
+  gDPSetCombineMode(glistp++, G_CC_DECALRGBA, G_CC_DECALRGBA);
+  gSPTexture(glistp++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
+  gDPSetTextureLOD (glistp++, G_TL_TILE);
+  gDPSetCycleType(glistp++, G_CYC_1CYCLE);
+  gSPSetGeometryMode(glistp++, G_SHADE | G_SHADING_SMOOTH | G_LIGHTING | G_CULL_BACK | G_ZBUFFER);
+  gDPSetRenderMode(
+    glistp++,
+    xlu ? G_RM_AA_ZB_XLU_DECAL : G_RM_AA_ZB_OPA_SURF,
+    xlu ? G_RM_AA_ZB_XLU_DECAL2 : G_RM_AA_ZB_OPA_SURF2
+  );
+  guPosition(
+    &object->transform,
+    vec3f_unpack(object->rot),
+    object->scale,
+    vec3f_unpack(object->pos)
+  );
+  gSPMatrix(glistp++, &object->transform, G_MTX_MODELVIEW | G_MTX_PUSH | G_MTX_MUL);
+}
+
+void graphics_end_object() {
   gDPPipeSync(glistp++);
+  gSPPopMatrix(glistp++, G_MTX_MODELVIEW);
 }
