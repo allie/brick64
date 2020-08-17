@@ -47,6 +47,7 @@
 #define CAMERA_MOVE_SCALE 0.25
 
 #define BRICK_DEATH_ANIM_DURATION 0.3
+#define BRICK_HIT_ANIM_DURATION 0.1
 
 extern NUContData controller[1];
 
@@ -76,6 +77,7 @@ typedef struct {
   u8 lives;
   Object obj;
   double death_anim_timer;
+  double hit_anim_timer;
 } Brick;
 
 static Brick bricks[NUM_BRICKS];
@@ -241,9 +243,10 @@ static bool handle_collision_bricks(Vec3f next_pos, float dist, Vec3f* new_next_
       if (--bricks[i].lives > 0) {
         ball.vel.z *= -1;
         intersection = TRUE;
+      } else {
+        // Don't report a hit if the brick dies
+        return FALSE;
       }
-      // Don't report a hit if the brick dies
-      return FALSE;
     }
 
     // Check left face if travelling right
@@ -253,8 +256,9 @@ static bool handle_collision_bricks(Vec3f next_pos, float dist, Vec3f* new_next_
       if (--bricks[i].lives > 0) {
         ball.vel.x *= -1;
         intersection = TRUE;
+      } else {
+        return FALSE;
       }
-      return FALSE;
     }
 
     // Check right face if travelling left
@@ -264,8 +268,9 @@ static bool handle_collision_bricks(Vec3f next_pos, float dist, Vec3f* new_next_
       if (--bricks[i].lives > 0) {
         ball.vel.x *= -1;
         intersection = TRUE;
+      } else {
+        return FALSE;
       }
-      return FALSE;
     }
 
     // Check top face if travelling down
@@ -275,8 +280,9 @@ static bool handle_collision_bricks(Vec3f next_pos, float dist, Vec3f* new_next_
       if (--bricks[i].lives > 0) {
         ball.vel.y *= -1;
         intersection = TRUE;
+      } else {
+        return FALSE;
       }
-      return FALSE;
     }
 
     // Check bottom face if travelling up
@@ -286,8 +292,9 @@ static bool handle_collision_bricks(Vec3f next_pos, float dist, Vec3f* new_next_
       if (--bricks[i].lives > 0) {
         ball.vel.y *= -1;
         intersection = TRUE;
+      } else {
+        return FALSE;
       }
-      return FALSE;
     }
 
     // Check back face if travelling towards from the camera
@@ -297,8 +304,16 @@ static bool handle_collision_bricks(Vec3f next_pos, float dist, Vec3f* new_next_
       if (--bricks[i].lives > 0) {
         ball.vel.z *= -1;
         intersection = TRUE;
+      } else {
+        return FALSE;
       }
-      return FALSE;
+    }
+
+    // If there was an intersection with any face of this brick,
+    // start the hit animation timer
+    if (intersection) {
+      bricks[i].hit_anim_timer = BRICK_HIT_ANIM_DURATION;
+      break;
     }
   }
 
@@ -462,16 +477,33 @@ static void update_bricks(double dt) {
   int i;
 
   for (i = 0; i < NUM_BRICKS; i++) {
-    if (bricks[i].lives > 0 || bricks[i].death_anim_timer <= 0) {
-      continue;
+    // Tick down death animation timer if it's running
+    if (bricks[i].lives == 0 && bricks[i].death_anim_timer > 0) {
+      bricks[i].death_anim_timer -= dt;
+
+      if (bricks[i].death_anim_timer < 0) {
+        bricks[i].death_anim_timer = 0;
+      }
+
+      bricks[i].obj.scale = (bricks[i].death_anim_timer / BRICK_DEATH_ANIM_DURATION);
     }
 
-    bricks[i].death_anim_timer -= dt;
-    if (bricks[i].death_anim_timer < 0) {
-      bricks[i].death_anim_timer = 0;
-    }
+    // Tick down hit animation timer if it's running
+    if (bricks[i].hit_anim_timer > 0) {
+      bricks[i].hit_anim_timer -= dt;
 
-    bricks[i].obj.scale = (bricks[i].death_anim_timer / BRICK_DEATH_ANIM_DURATION);
+      if (bricks[i].hit_anim_timer < 0) {
+        bricks[i].hit_anim_timer = 0;
+      }
+
+      vec3f_set(
+        bricks[i].obj.rot,
+        sin(2 * M_PI * ((BRICK_HIT_ANIM_DURATION - bricks[i].hit_anim_timer) / BRICK_HIT_ANIM_DURATION)) * 5.0,
+        0,
+        // sin(2 * M_PI * ((BRICK_HIT_ANIM_DURATION - bricks[i].hit_anim_timer) / BRICK_HIT_ANIM_DURATION)) * 5.0,
+        sin(4 * M_PI * ((BRICK_HIT_ANIM_DURATION - bricks[i].hit_anim_timer) / BRICK_HIT_ANIM_DURATION)) * 3.0
+      );
+    }
   }
 }
 
