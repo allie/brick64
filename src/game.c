@@ -19,7 +19,7 @@
 #define STAGE_BLOCK_W 5
 #define PADDLE_W 400
 #define PADDLE_R (PADDLE_W / 2)
-#define BALL_W 120
+#define BALL_W 100.0
 #define BALL_R (BALL_W / 2)
 #define BRICK_W UNIT_SIZE
 #define BRICK_R (UNIT_SIZE / 2)
@@ -46,13 +46,14 @@
 
 #define CAMERA_MOVE_SCALE 0.25
 
-#define BRICK_DEATH_ANIM_DURATION 0.3
+#define BRICK_DEATH_ANIM_DURATION 0.1
 #define BRICK_HIT_ANIM_DURATION 0.1
+#define PADDLE_HIT_ANIM_DURATION 0.2
+#define PADDLE_HIT_ANIM_INTENSITY 20.0f
 
 extern NUContData controller[1];
 
 static Object stage;
-static Object paddle;
 static Object ball;
 
 static bool paused = TRUE;
@@ -66,6 +67,16 @@ enum {
   SIDE_FRONT = 4,
   SIDE_BACK = 5
 };
+
+typedef struct {
+  Object obj;
+  double hit_anim_timer;
+  Vec3f hit_rot;
+  bool held;
+  Vec3f hold_pos;
+} Paddle;
+
+static Paddle paddle;
 
 typedef struct {
   float left;
@@ -141,16 +152,39 @@ static bool handle_collision_walls(Vec3f next_pos, float dist, Vec3f* new_next_p
       !intersection &&
       moving_sphere_plane_intersect(BALL_R, ball.pos, next_pos, walls[SIDE_FRONT], &hit, &time)) {
     // Check if the intersection point lies within the bounds of the paddle
-    if (hit.x >= paddle.pos.x - PADDLE_R - BALL_R && hit.x <= paddle.pos.x + PADDLE_R + BALL_R &&
-        hit.y >= paddle.pos.y - PADDLE_R - BALL_R && hit.y <= paddle.pos.y + PADDLE_R + BALL_R) {
+    if (hit.x >= paddle.obj.pos.x - PADDLE_R - BALL_R && hit.x <= paddle.obj.pos.x + PADDLE_R + BALL_R &&
+        hit.y >= paddle.obj.pos.y - PADDLE_R - BALL_R && hit.y <= paddle.obj.pos.y + PADDLE_R + BALL_R) {
       // If so, set the ball's direction to a brand new angle based on its position relative to the paddle's centre
       vec3f_set(
         ball.vel,
-        -(hit.x - paddle.pos.x) / PADDLE_R,
-        -(hit.y - paddle.pos.y) / PADDLE_R,
+        -(hit.x - paddle.obj.pos.x) / PADDLE_R,
+        -(hit.y - paddle.obj.pos.y) / PADDLE_R,
         -ball.vel.z
       );
       intersection = TRUE;
+      // Calculate the hit animation rotation for this hit
+      vec3f_set(
+        paddle.hit_rot,
+        (-(hit.y - paddle.obj.pos.y) / PADDLE_R) * PADDLE_HIT_ANIM_INTENSITY,
+        ((hit.x - paddle.obj.pos.x) / PADDLE_R) * PADDLE_HIT_ANIM_INTENSITY,
+        0
+      );
+      // If the A button is held on this frame, hold the ball
+      if (controller[0].button & A_BUTTON) {
+        paddle.held = TRUE;
+        vec3f_set(
+          paddle.hold_pos,
+          hit.x - paddle.obj.pos.x,
+          hit.y - paddle.obj.pos.y,
+          hit.z - paddle.obj.pos.z
+        );
+        *new_next_pos = hit;
+        return FALSE;
+      }
+      // Otherwise, start the hit animation
+      else {
+        paddle.hit_anim_timer = PADDLE_HIT_ANIM_DURATION;
+      }
     }
     // If the ball doesn't hit the paddle but still intersects with the front wall, it's an out
     // For now, just respawn the ball
@@ -162,7 +196,7 @@ static bool handle_collision_walls(Vec3f next_pos, float dist, Vec3f* new_next_p
 
   if (intersection) {
     // Move the ball to the intersection point
-    vec3f_copy(ball.pos, hit);
+    ball.pos = hit;
 
     // Calculate the portion of the ball's movement that occurs after collision
     dist_after_hit = (1.0f - time) * dist;
@@ -389,12 +423,12 @@ static void update_camera_free(double dt) {
 
 static void update_camera(double dt) {
   Vec2f rot = {
-    -(paddle.pos.x / PADDLE_MAX_X) * 5,
-    -(paddle.pos.y / PADDLE_MAX_Y) * 5
+    -(paddle.obj.pos.x / PADDLE_MAX_X) * 5,
+    -(paddle.obj.pos.y / PADDLE_MAX_Y) * 5
   };
   camera_rotate_to(rot);
-  camera.pos.x = paddle.pos.x * CAMERA_MOVE_SCALE;
-  camera.pos.y = paddle.pos.y * CAMERA_MOVE_SCALE;
+  camera.pos.x = paddle.obj.pos.x * CAMERA_MOVE_SCALE;
+  camera.pos.y = paddle.obj.pos.y * CAMERA_MOVE_SCALE;
 }
 
 static void update_ball(double dt) {
@@ -425,13 +459,16 @@ static void update_ball(double dt) {
 
     // If there is ultimately a collision in this iteration, move the ball to its corrected position
     if (hit) {
-      vec3f_copy(next_pos, new_next_pos);
+      next_pos = new_next_pos;
     }
   } while (hit); // Iterate until there are no more collisions to resolve this update
 
   // If the ball is still live, move it to its corrected new position
   if (live) {
-    vec3f_copy(ball.pos, next_pos);
+    // Skip this if the ball is being held by the paddle
+    if (!paddle.held) {
+      ball.pos = next_pos;
+    }
   }
   // Otherwise, respawn the ball
   else {
@@ -455,21 +492,49 @@ static void update_paddle(double dt) {
   if (fabs(velocity.x) > EPSILON || fabs(velocity.y) > EPSILON || fabs(velocity.z) > EPSILON) {
     vec3f_norm(velocity);
     vec3f_mag(velocity, MOVE_VELOCITY * dt);
-    vec3f_add(paddle.pos, velocity);
+    vec3f_add(paddle.obj.pos, velocity);
 
     // Clamp paddle position
-    if (paddle.pos.x < PADDLE_MIN_X) {
-      paddle.pos.x = PADDLE_MIN_X;
+    if (paddle.obj.pos.x < PADDLE_MIN_X) {
+      paddle.obj.pos.x = PADDLE_MIN_X;
     }
-    if (paddle.pos.x > PADDLE_MAX_X) {
-      paddle.pos.x = PADDLE_MAX_X;
+    if (paddle.obj.pos.x > PADDLE_MAX_X) {
+      paddle.obj.pos.x = PADDLE_MAX_X;
     }
-    if (paddle.pos.y < PADDLE_MIN_Y) {
-      paddle.pos.y = PADDLE_MIN_Y;
+    if (paddle.obj.pos.y < PADDLE_MIN_Y) {
+      paddle.obj.pos.y = PADDLE_MIN_Y;
     }
-    if (paddle.pos.y > PADDLE_MAX_Y) {
-      paddle.pos.y = PADDLE_MAX_Y;
+    if (paddle.obj.pos.y > PADDLE_MAX_Y) {
+      paddle.obj.pos.y = PADDLE_MAX_Y;
     }
+  }
+
+  // Tick down hit animation timer if it's running
+  if (paddle.hit_anim_timer > 0) {
+    float x;
+    paddle.hit_anim_timer -= dt;
+
+    if (paddle.hit_anim_timer < 0) {
+      paddle.hit_anim_timer = 0;
+    }
+
+    x = (PADDLE_HIT_ANIM_DURATION - paddle.hit_anim_timer) / PADDLE_HIT_ANIM_DURATION;
+
+    // Send paddle back a bit
+    vec3f_set(
+      paddle.obj.pos,
+      paddle.obj.pos.x,
+      paddle.obj.pos.y,
+      sin(M_PI * x) * -(PADDLE_HIT_ANIM_INTENSITY * 5) + (STAGE_BLOCK_W * UNIT_SIZE)
+    );
+
+    // Rotate the paddle depending on hit position
+    vec3f_set(
+      paddle.obj.rot,
+      sin(M_PI * x) * paddle.hit_rot.x,
+      sin(M_PI * x) * paddle.hit_rot.y,
+      0
+    );
   }
 }
 
@@ -498,10 +563,9 @@ static void update_bricks(double dt) {
 
       vec3f_set(
         bricks[i].obj.rot,
-        sin(2 * M_PI * ((BRICK_HIT_ANIM_DURATION - bricks[i].hit_anim_timer) / BRICK_HIT_ANIM_DURATION)) * 5.0,
+        sin(2 * M_PI * ((BRICK_HIT_ANIM_DURATION - bricks[i].hit_anim_timer) / BRICK_HIT_ANIM_DURATION)) * 10.0,
         0,
-        // sin(2 * M_PI * ((BRICK_HIT_ANIM_DURATION - bricks[i].hit_anim_timer) / BRICK_HIT_ANIM_DURATION)) * 5.0,
-        sin(4 * M_PI * ((BRICK_HIT_ANIM_DURATION - bricks[i].hit_anim_timer) / BRICK_HIT_ANIM_DURATION)) * 3.0
+        sin(4 * M_PI * ((BRICK_HIT_ANIM_DURATION - bricks[i].hit_anim_timer) / BRICK_HIT_ANIM_DURATION)) * 6.0
       );
     }
   }
@@ -559,10 +623,12 @@ void game_init(void) {
   stage.scale = STAGE_BLOCK_W;
 
   // Initialize paddle
-  vec3f_set(paddle.pos, 0, 0, STAGE_BLOCK_W * UNIT_SIZE);
-  vec3f_set(paddle.rot, 0, 0, 0);
-  vec3f_set(paddle.vel, 0, 0, 0);
-  paddle.scale = 2;
+  vec3f_set(paddle.obj.pos, 0, 0, STAGE_BLOCK_W * UNIT_SIZE);
+  vec3f_set(paddle.obj.rot, 0, 0, 0);
+  vec3f_set(paddle.obj.vel, 0, 0, 0);
+  paddle.obj.scale = 2;
+  paddle.hit_anim_timer = 0;
+  paddle.held = FALSE;
 
   // Initialize ball
   vec3f_set(ball.pos, 0, 0, 450);
@@ -606,7 +672,21 @@ void game_update(double dt) {
   }
 
   update_paddle(dt);
-  update_ball(dt);
+
+  // Check if the ball is held
+  if (paddle.held) {
+    // Position the ball relative to the paddle
+    ball.pos = paddle.hold_pos;
+    vec3f_add(ball.pos, paddle.obj.pos);
+    // Check for A button release
+    if (!(controller[0].button & A_BUTTON)) {
+      paddle.held = FALSE;
+      paddle.hit_anim_timer = PADDLE_HIT_ANIM_DURATION;
+    }
+  } else {
+    update_ball(dt);
+  }
+
   update_camera(dt);
   update_bricks(dt);
 }
@@ -652,7 +732,7 @@ void game_draw(void) {
   graphics_draw_object(&ball, ball_Icosphere_mesh, FALSE);
 
   // Transparent objects drawn last
-  graphics_draw_object(&paddle, paddle_Cube_mesh, TRUE);
+  graphics_draw_object(&paddle.obj, paddle_Cube_mesh, TRUE);
 
   gDPFullSync(glistp++);
   gSPEndDisplayList(glistp++);
