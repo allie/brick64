@@ -1,4 +1,5 @@
 #include <nusys.h>
+#include <math.h>
 #include "common.h"
 #include "game.h"
 #include "graphics.h"
@@ -23,6 +24,7 @@
 #define BALL_R (BALL_W / 2)
 #define BRICK_W UNIT_SIZE
 #define BRICK_R (UNIT_SIZE / 2)
+#define BRICK_CR (BRICK_W * 1.2247449f)
 
 #define NUM_BRICKS (STAGE_BLOCK_W * STAGE_BLOCK_W)
 #define STAGE_W (UNIT_SIZE * STAGE_BLOCK_W)
@@ -107,9 +109,11 @@ static bool handle_collision_walls(Vec3f next_pos, float dist, Vec3f* new_next_p
   // Check up to 3 walls, depending on the direction the ball is travelling.
   // For instance, if the ball is travelling in the -X direction, there is no need to check
   // the right wall, as it's only possible for the ball to hit the left wall when travelling left.
+  // Additionally, collision checking is skipped if the next position is still within level bounds.
 
   // Check left wall
   if (ball.vel.x < 0 &&
+      next_pos.x <= BALL_MIN_X &&
       moving_sphere_plane_intersect(BALL_R, ball.pos, next_pos, walls[SIDE_LEFT], &hit, &time)) {
     // Flip x direction
     ball.vel.x *= -1;
@@ -117,6 +121,7 @@ static bool handle_collision_walls(Vec3f next_pos, float dist, Vec3f* new_next_p
   }
   // Check right wall
   if (ball.vel.x > 0 &&
+      next_pos.x >= BALL_MAX_X &&
       !intersection &&
       moving_sphere_plane_intersect(BALL_R, ball.pos, next_pos, walls[SIDE_RIGHT], &hit, &time)) {
     // Flip x direction
@@ -125,6 +130,7 @@ static bool handle_collision_walls(Vec3f next_pos, float dist, Vec3f* new_next_p
   }
   // Check top wall
   if (ball.vel.y > 0 &&
+      next_pos.y >= BALL_MAX_Y &&
       !intersection &&
       moving_sphere_plane_intersect(BALL_R, ball.pos, next_pos, walls[SIDE_TOP], &hit, &time)) {
     // Flip y direction
@@ -133,6 +139,7 @@ static bool handle_collision_walls(Vec3f next_pos, float dist, Vec3f* new_next_p
   }
   // Check bottom wall
   if (ball.vel.y < 0 &&
+      next_pos.y <= BALL_MIN_Y &&
       !intersection &&
       moving_sphere_plane_intersect(BALL_R, ball.pos, next_pos, walls[SIDE_BOTTOM], &hit, &time)) {
     // Flip y direction
@@ -141,6 +148,7 @@ static bool handle_collision_walls(Vec3f next_pos, float dist, Vec3f* new_next_p
   }
   // Check back wall
   if (ball.vel.z < 0 &&
+      next_pos.z <= BALL_MIN_Z &&
       !intersection &&
       moving_sphere_plane_intersect(BALL_R, ball.pos, next_pos, walls[SIDE_BACK], &hit, &time)) {
     // Flip z direction
@@ -149,6 +157,7 @@ static bool handle_collision_walls(Vec3f next_pos, float dist, Vec3f* new_next_p
   }
   // Check front wall
   if (ball.vel.z > 0 &&
+      next_pos.z >= BALL_MAX_Z &&
       !intersection &&
       moving_sphere_plane_intersect(BALL_R, ball.pos, next_pos, walls[SIDE_FRONT], &hit, &time)) {
     // Check if the intersection point lies within the bounds of the paddle
@@ -228,126 +237,139 @@ static bool handle_collision_bricks(Vec3f next_pos, float dist, Vec3f* new_next_
   int i;
 
   for (i = 0; i < NUM_BRICKS; i++) {
-    Vec3f left[] = {
-      {bricks[i].left, bricks[i].top, bricks[i].back},
-      {bricks[i].left, bricks[i].top, bricks[i].front},
-      {bricks[i].left, bricks[i].bottom, bricks[i].back},
-      {bricks[i].left, bricks[i].bottom, bricks[i].front}
-    };
-    Vec3f right[] = {
-      {bricks[i].right, bricks[i].top, bricks[i].front},
-      {bricks[i].right, bricks[i].top, bricks[i].back},
-      {bricks[i].right, bricks[i].bottom, bricks[i].front},
-      {bricks[i].right, bricks[i].bottom, bricks[i].back}
-    };
-    Vec3f top[] = {
-      {bricks[i].left, bricks[i].top, bricks[i].back},
-      {bricks[i].right, bricks[i].top, bricks[i].back},
-      {bricks[i].left, bricks[i].top, bricks[i].front},
-      {bricks[i].right, bricks[i].top, bricks[i].front}
-    };
-    Vec3f bottom[] = {
-      {bricks[i].left, bricks[i].bottom, bricks[i].front},
-      {bricks[i].right, bricks[i].bottom, bricks[i].front},
-      {bricks[i].left, bricks[i].bottom, bricks[i].back},
-      {bricks[i].right, bricks[i].bottom, bricks[i].back}
-    };
-    Vec3f front[] = {
-      {bricks[i].left, bricks[i].top, bricks[i].front},
-      {bricks[i].right, bricks[i].top, bricks[i].front},
-      {bricks[i].left, bricks[i].bottom, bricks[i].front},
-      {bricks[i].right, bricks[i].bottom, bricks[i].front}
-    };
-    Vec3f back[] = {
-      {bricks[i].right, bricks[i].top, bricks[i].back},
-      {bricks[i].left, bricks[i].top, bricks[i].back},
-      {bricks[i].right, bricks[i].bottom, bricks[i].back},
-      {bricks[i].left, bricks[i].bottom, bricks[i].back}
-    };
+    // Check the distance from the ball to the cube and see if it's worth doing collision detection
+    float dist_to_brick = sqrtf(
+      pow(bricks[i].obj.pos.x - ball.pos.x, 2) +
+      pow(bricks[i].obj.pos.y - ball.pos.y, 2) +
+      pow(bricks[i].obj.pos.z - ball.pos.z, 2)
+    ) - BALL_R - BRICK_CR;
 
-    // Don't check dead bricks
-    if (bricks[i].lives == 0) {
+    if (dist_to_brick - dist >= 0) {
       continue;
     }
 
-    // Check three sides of the brick, depending on the ball's velocity
-    // Check front face if travelling away from the camera
-    if (ball.vel.z < 0 &&
-        moving_sphere_quad_intersect(BALL_R, ball.pos, next_pos, front[0], front[1], front[2], front[3], &hit, &time)) {
-      if (--bricks[i].lives > 0) {
-        ball.vel.z *= -1;
-        intersection = TRUE;
-      } else {
-        // Don't report a hit if the brick dies
-        return FALSE;
-      }
-    }
+    {
+      Vec3f left[] = {
+        {bricks[i].left, bricks[i].top, bricks[i].back},
+        {bricks[i].left, bricks[i].top, bricks[i].front},
+        {bricks[i].left, bricks[i].bottom, bricks[i].back},
+        {bricks[i].left, bricks[i].bottom, bricks[i].front}
+      };
+      Vec3f right[] = {
+        {bricks[i].right, bricks[i].top, bricks[i].front},
+        {bricks[i].right, bricks[i].top, bricks[i].back},
+        {bricks[i].right, bricks[i].bottom, bricks[i].front},
+        {bricks[i].right, bricks[i].bottom, bricks[i].back}
+      };
+      Vec3f top[] = {
+        {bricks[i].left, bricks[i].top, bricks[i].back},
+        {bricks[i].right, bricks[i].top, bricks[i].back},
+        {bricks[i].left, bricks[i].top, bricks[i].front},
+        {bricks[i].right, bricks[i].top, bricks[i].front}
+      };
+      Vec3f bottom[] = {
+        {bricks[i].left, bricks[i].bottom, bricks[i].front},
+        {bricks[i].right, bricks[i].bottom, bricks[i].front},
+        {bricks[i].left, bricks[i].bottom, bricks[i].back},
+        {bricks[i].right, bricks[i].bottom, bricks[i].back}
+      };
+      Vec3f front[] = {
+        {bricks[i].left, bricks[i].top, bricks[i].front},
+        {bricks[i].right, bricks[i].top, bricks[i].front},
+        {bricks[i].left, bricks[i].bottom, bricks[i].front},
+        {bricks[i].right, bricks[i].bottom, bricks[i].front}
+      };
+      Vec3f back[] = {
+        {bricks[i].right, bricks[i].top, bricks[i].back},
+        {bricks[i].left, bricks[i].top, bricks[i].back},
+        {bricks[i].right, bricks[i].bottom, bricks[i].back},
+        {bricks[i].left, bricks[i].bottom, bricks[i].back}
+      };
 
-    // Check left face if travelling right
-    if (ball.vel.x > 0 &&
-        !intersection &&
-        moving_sphere_quad_intersect(BALL_R, ball.pos, next_pos, left[0], left[1], left[2], left[3], &hit, &time)) {
-      if (--bricks[i].lives > 0) {
-        ball.vel.x *= -1;
-        intersection = TRUE;
-      } else {
-        return FALSE;
+      // Don't check dead bricks
+      if (bricks[i].lives == 0) {
+        continue;
       }
-    }
 
-    // Check right face if travelling left
-    if (ball.vel.x < 0 &&
-        !intersection &&
-        moving_sphere_quad_intersect(BALL_R, ball.pos, next_pos, right[0], right[1], right[2], right[3], &hit, &time)) {
-      if (--bricks[i].lives > 0) {
-        ball.vel.x *= -1;
-        intersection = TRUE;
-      } else {
-        return FALSE;
+      // Check three sides of the brick, depending on the ball's velocity
+      // Check front face if travelling away from the camera
+      if (ball.vel.z < 0 &&
+          moving_sphere_quad_intersect(BALL_R, ball.pos, next_pos, front[0], front[1], front[2], front[3], &hit, &time)) {
+        if (--bricks[i].lives > 0) {
+          ball.vel.z *= -1;
+          intersection = TRUE;
+        } else {
+          // Don't report a hit if the brick dies
+          return FALSE;
+        }
       }
-    }
 
-    // Check top face if travelling down
-    if (ball.vel.y < 0 &&
-        !intersection &&
-        moving_sphere_quad_intersect(BALL_R, ball.pos, next_pos, top[0], top[1], top[2], top[3], &hit, &time)) {
-      if (--bricks[i].lives > 0) {
-        ball.vel.y *= -1;
-        intersection = TRUE;
-      } else {
-        return FALSE;
+      // Check left face if travelling right
+      if (ball.vel.x > 0 &&
+          !intersection &&
+          moving_sphere_quad_intersect(BALL_R, ball.pos, next_pos, left[0], left[1], left[2], left[3], &hit, &time)) {
+        if (--bricks[i].lives > 0) {
+          ball.vel.x *= -1;
+          intersection = TRUE;
+        } else {
+          return FALSE;
+        }
       }
-    }
 
-    // Check bottom face if travelling up
-    if (ball.vel.y > 0 &&
-        !intersection &&
-        moving_sphere_quad_intersect(BALL_R, ball.pos, next_pos, bottom[0], bottom[1], bottom[2], bottom[3], &hit, &time)) {
-      if (--bricks[i].lives > 0) {
-        ball.vel.y *= -1;
-        intersection = TRUE;
-      } else {
-        return FALSE;
+      // Check right face if travelling left
+      if (ball.vel.x < 0 &&
+          !intersection &&
+          moving_sphere_quad_intersect(BALL_R, ball.pos, next_pos, right[0], right[1], right[2], right[3], &hit, &time)) {
+        if (--bricks[i].lives > 0) {
+          ball.vel.x *= -1;
+          intersection = TRUE;
+        } else {
+          return FALSE;
+        }
       }
-    }
 
-    // Check back face if travelling towards from the camera
-    if (ball.vel.z > 0 &&
-        !intersection &&
-        moving_sphere_quad_intersect(BALL_R, ball.pos, next_pos, back[0], back[1], back[2], back[3], &hit, &time)) {
-      if (--bricks[i].lives > 0) {
-        ball.vel.z *= -1;
-        intersection = TRUE;
-      } else {
-        return FALSE;
+      // Check top face if travelling down
+      if (ball.vel.y < 0 &&
+          !intersection &&
+          moving_sphere_quad_intersect(BALL_R, ball.pos, next_pos, top[0], top[1], top[2], top[3], &hit, &time)) {
+        if (--bricks[i].lives > 0) {
+          ball.vel.y *= -1;
+          intersection = TRUE;
+        } else {
+          return FALSE;
+        }
       }
-    }
 
-    // If there was an intersection with any face of this brick,
-    // start the hit animation timer
-    if (intersection) {
-      bricks[i].hit_anim_timer = BRICK_HIT_ANIM_DURATION;
-      break;
+      // Check bottom face if travelling up
+      if (ball.vel.y > 0 &&
+          !intersection &&
+          moving_sphere_quad_intersect(BALL_R, ball.pos, next_pos, bottom[0], bottom[1], bottom[2], bottom[3], &hit, &time)) {
+        if (--bricks[i].lives > 0) {
+          ball.vel.y *= -1;
+          intersection = TRUE;
+        } else {
+          return FALSE;
+        }
+      }
+
+      // Check back face if travelling towards from the camera
+      if (ball.vel.z > 0 &&
+          !intersection &&
+          moving_sphere_quad_intersect(BALL_R, ball.pos, next_pos, back[0], back[1], back[2], back[3], &hit, &time)) {
+        if (--bricks[i].lives > 0) {
+          ball.vel.z *= -1;
+          intersection = TRUE;
+        } else {
+          return FALSE;
+        }
+      }
+
+      // If there was an intersection with any face of this brick,
+      // start the hit animation timer
+      if (intersection) {
+        bricks[i].hit_anim_timer = BRICK_HIT_ANIM_DURATION;
+        break;
+      }
     }
   }
 
