@@ -16,13 +16,16 @@ OPTIMIZER = -O0
 NUSYSDIR = $(N64KITDIR)\nusys
 NUSYSINC = $(NUSYSDIR)\include
 NUSYSLIB = $(NUSYSDIR)\lib
+NUSTDDIR = $(N64KITDIR)\nustd
+NUSTDINC = $(NUSTDDIR)\include
+NUSTDLIB = $(NUSTDDIR)\lib
 
 NUOBJ = $(NUSYSLIB)\nusys.o
 
 LCDEFS = -DF3DEX_GBI_2
-LCINCS = -I$(INC)\PR -I$(NUSYSINC) -I$(INCDIR) -I$(DATADIR)
+LCINCS = -I$(INC)\PR -I$(NUSYSINC) -I$(NUSTDINC) -I$(INCDIR) -I$(DATADIR)
 LCOPTS = -G 0 $(DEBUGSYM)
-LDFLAGS = -L$(ROOT)\usr\lib -L$(ROOT)\usr\lib\PR -L$(NUSYSLIB) -lnusys_d -lgultra_d -L$(GCCDIR)\mipse\lib -lkmc
+LDFLAGS = -L$(ROOT)\usr\lib -L$(ROOT)\usr\lib\PR -L$(NUSYSLIB) -L$(NUSTDLIB) -lnusys_d -lnustd_d -lgultra_d -L$(GCCDIR)\mipse\lib -lkmc
 
 include $(ROOT)\usr\include\make\PRdefs
 

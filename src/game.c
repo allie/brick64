@@ -7,95 +7,37 @@
 #include "object.h"
 #include "plane.h"
 #include "collision.h"
+#include "brick.h"
+#include "paddle.h"
+#include "ball.h"
+#include "level.h"
 
 #include "models/stage.h"
-// #include "models/stage_opa.h"
 #include "models/paddle.h"
 #include "models/ball.h"
 #include "models/brick.h"
 
+#include "levels/stage0.h"
+
 #define ROT_VELOCITY 1.0f
-
-#define UNIT_SIZE 200
-#define STAGE_BLOCK_W 5
-#define PADDLE_W 400
-#define PADDLE_R (PADDLE_W / 2)
-#define BALL_W 100.0
-#define BALL_R (BALL_W / 2)
-#define BRICK_W UNIT_SIZE
-#define BRICK_R (UNIT_SIZE / 2)
-#define BRICK_CR (BRICK_W * 1.2247449f)
-
-#define NUM_BRICKS (STAGE_BLOCK_W * STAGE_BLOCK_W)
-#define STAGE_W (UNIT_SIZE * STAGE_BLOCK_W)
-#define STAGE_D (STAGE_W * 2)
-
-#define PADDLE_MIN_X (-(STAGE_W / 2) - (PADDLE_W / 4))
-#define PADDLE_MAX_X ((STAGE_W / 2) + (PADDLE_W / 4))
-#define PADDLE_MIN_Y (-(STAGE_W / 2) - (PADDLE_W / 4))
-#define PADDLE_MAX_Y ((STAGE_W / 2) + (PADDLE_W / 4))
-
-#define BALL_MIN_X (-(STAGE_W / 2) + BALL_R)
-#define BALL_MAX_X ((STAGE_W / 2) - BALL_R)
-#define BALL_MIN_Y (-(STAGE_W / 2) + BALL_R)
-#define BALL_MAX_Y ((STAGE_W / 2) - BALL_R)
-#define BALL_MIN_Z (-(UNIT_SIZE * 2) - BALL_R)
-#define BALL_MAX_Z ((STAGE_W) - BALL_R)
-
-#define MOVE_VELOCITY (350.0 * STAGE_BLOCK_W)
-#define BALL_VELOCITY (200.0 * STAGE_BLOCK_W)
-#define BALL_START_VELOCITY 1
-
 #define CAMERA_MOVE_SCALE 0.25
-
-#define BRICK_DEATH_ANIM_DURATION 0.1
-#define BRICK_HIT_ANIM_DURATION 0.1
-#define PADDLE_HIT_ANIM_DURATION 0.2
-#define PADDLE_HIT_ANIM_INTENSITY 20.0f
+#define NUM_LEVELS 1
 
 extern NUContData controller[1];
 
 static Object stage;
 static Object ball;
 
-static bool paused = TRUE;
-static bool live = TRUE;
-
-enum {
-  SIDE_LEFT = 0,
-  SIDE_RIGHT = 1,
-  SIDE_TOP = 2,
-  SIDE_BOTTOM = 3,
-  SIDE_FRONT = 4,
-  SIDE_BACK = 5
-};
-
-typedef struct {
-  Object obj;
-  double hit_anim_timer;
-  Vec3f hit_rot;
-  bool held;
-  Vec3f hold_pos;
-} Paddle;
-
 static Paddle paddle;
 
-typedef struct {
-  float left;
-  float right;
-  float top;
-  float bottom;
-  float front;
-  float back;
-  u8 lives;
-  Object obj;
-  double death_anim_timer;
-  double hit_anim_timer;
-} Brick;
+static LevelData* level_data[] = {
+  &stage0
+};
+static Level level;
+static int current_level = 0;
 
-static Brick bricks[NUM_BRICKS];
-
-static Plane walls[6];
+static bool paused = TRUE;
+static bool live = TRUE;
 
 // Check each wall for collision with the ball.
 // If there is a collision, move the ball to the collision point and return a new next_pos.
@@ -113,53 +55,53 @@ static bool handle_collision_walls(Vec3f next_pos, float dist, Vec3f* new_next_p
 
   // Check left wall
   if (ball.vel.x < 0 &&
-      next_pos.x <= BALL_MIN_X &&
-      moving_sphere_plane_intersect(BALL_R, ball.pos, next_pos, walls[SIDE_LEFT], &hit, &time)) {
+      next_pos.x <= level.bounds[SIDE_LEFT] + BALL_R &&
+      moving_sphere_plane_intersect(BALL_R, ball.pos, next_pos, level.walls[SIDE_LEFT], &hit, &time)) {
     // Flip x direction
     ball.vel.x *= -1;
     intersection = TRUE;
   }
   // Check right wall
   if (ball.vel.x > 0 &&
-      next_pos.x >= BALL_MAX_X &&
+      next_pos.x >= level.bounds[SIDE_RIGHT] - BALL_R &&
       !intersection &&
-      moving_sphere_plane_intersect(BALL_R, ball.pos, next_pos, walls[SIDE_RIGHT], &hit, &time)) {
+      moving_sphere_plane_intersect(BALL_R, ball.pos, next_pos, level.walls[SIDE_RIGHT], &hit, &time)) {
     // Flip x direction
     ball.vel.x *= -1;
     intersection = TRUE;
   }
   // Check top wall
   if (ball.vel.y > 0 &&
-      next_pos.y >= BALL_MAX_Y &&
+      next_pos.y >= level.bounds[SIDE_TOP] - BALL_R &&
       !intersection &&
-      moving_sphere_plane_intersect(BALL_R, ball.pos, next_pos, walls[SIDE_TOP], &hit, &time)) {
+      moving_sphere_plane_intersect(BALL_R, ball.pos, next_pos, level.walls[SIDE_TOP], &hit, &time)) {
     // Flip y direction
     ball.vel.y *= -1;
     intersection = TRUE;
   }
   // Check bottom wall
   if (ball.vel.y < 0 &&
-      next_pos.y <= BALL_MIN_Y &&
+      next_pos.y <= level.bounds[SIDE_BOTTOM] + BALL_R &&
       !intersection &&
-      moving_sphere_plane_intersect(BALL_R, ball.pos, next_pos, walls[SIDE_BOTTOM], &hit, &time)) {
+      moving_sphere_plane_intersect(BALL_R, ball.pos, next_pos, level.walls[SIDE_BOTTOM], &hit, &time)) {
     // Flip y direction
     ball.vel.y *= -1;
     intersection = TRUE;
   }
   // Check back wall
   if (ball.vel.z < 0 &&
-      next_pos.z <= BALL_MIN_Z &&
+      next_pos.z <= level.bounds[SIDE_BACK] + BALL_R &&
       !intersection &&
-      moving_sphere_plane_intersect(BALL_R, ball.pos, next_pos, walls[SIDE_BACK], &hit, &time)) {
+      moving_sphere_plane_intersect(BALL_R, ball.pos, next_pos, level.walls[SIDE_BACK], &hit, &time)) {
     // Flip z direction
     ball.vel.z *= -1;
     intersection = TRUE;
   }
   // Check front wall
   if (ball.vel.z > 0 &&
-      next_pos.z >= BALL_MAX_Z &&
+      next_pos.z >= level.bounds[SIDE_FRONT] - BALL_R &&
       !intersection &&
-      moving_sphere_plane_intersect(BALL_R, ball.pos, next_pos, walls[SIDE_FRONT], &hit, &time)) {
+      moving_sphere_plane_intersect(BALL_R, ball.pos, next_pos, level.walls[SIDE_FRONT], &hit, &time)) {
     // Check if the intersection point lies within the bounds of the paddle
     if (hit.x >= paddle.obj.pos.x - PADDLE_R - BALL_R && hit.x <= paddle.obj.pos.x + PADDLE_R + BALL_R &&
         hit.y >= paddle.obj.pos.y - PADDLE_R - BALL_R && hit.y <= paddle.obj.pos.y + PADDLE_R + BALL_R) {
@@ -236,140 +178,125 @@ static bool handle_collision_bricks(Vec3f next_pos, float dist, Vec3f* new_next_
   float time, dist_after_hit;
   int i;
 
-  for (i = 0; i < NUM_BRICKS; i++) {
+  for (i = 0; i < level.num_bricks; i++) {
     // Check the distance from the ball to the cube and see if it's worth doing collision detection
     float dist_to_brick = sqrtf(
-      pow(bricks[i].obj.pos.x - ball.pos.x, 2) +
-      pow(bricks[i].obj.pos.y - ball.pos.y, 2) +
-      pow(bricks[i].obj.pos.z - ball.pos.z, 2)
+      pow(level.bricks[i].obj.pos.x - ball.pos.x, 2) +
+      pow(level.bricks[i].obj.pos.y - ball.pos.y, 2) +
+      pow(level.bricks[i].obj.pos.z - ball.pos.z, 2)
     ) - BALL_R - BRICK_CR;
 
     if (dist_to_brick - dist >= 0) {
       continue;
     }
 
-    {
-      Vec3f left[] = {
-        {bricks[i].left, bricks[i].top, bricks[i].back},
-        {bricks[i].left, bricks[i].top, bricks[i].front},
-        {bricks[i].left, bricks[i].bottom, bricks[i].back},
-        {bricks[i].left, bricks[i].bottom, bricks[i].front}
-      };
-      Vec3f right[] = {
-        {bricks[i].right, bricks[i].top, bricks[i].front},
-        {bricks[i].right, bricks[i].top, bricks[i].back},
-        {bricks[i].right, bricks[i].bottom, bricks[i].front},
-        {bricks[i].right, bricks[i].bottom, bricks[i].back}
-      };
-      Vec3f top[] = {
-        {bricks[i].left, bricks[i].top, bricks[i].back},
-        {bricks[i].right, bricks[i].top, bricks[i].back},
-        {bricks[i].left, bricks[i].top, bricks[i].front},
-        {bricks[i].right, bricks[i].top, bricks[i].front}
-      };
-      Vec3f bottom[] = {
-        {bricks[i].left, bricks[i].bottom, bricks[i].front},
-        {bricks[i].right, bricks[i].bottom, bricks[i].front},
-        {bricks[i].left, bricks[i].bottom, bricks[i].back},
-        {bricks[i].right, bricks[i].bottom, bricks[i].back}
-      };
-      Vec3f front[] = {
-        {bricks[i].left, bricks[i].top, bricks[i].front},
-        {bricks[i].right, bricks[i].top, bricks[i].front},
-        {bricks[i].left, bricks[i].bottom, bricks[i].front},
-        {bricks[i].right, bricks[i].bottom, bricks[i].front}
-      };
-      Vec3f back[] = {
-        {bricks[i].right, bricks[i].top, bricks[i].back},
-        {bricks[i].left, bricks[i].top, bricks[i].back},
-        {bricks[i].right, bricks[i].bottom, bricks[i].back},
-        {bricks[i].left, bricks[i].bottom, bricks[i].back}
-      };
+    // Don't check dead bricks
+    if (level.bricks[i].lives == 0) {
+      continue;
+    }
 
-      // Don't check dead bricks
-      if (bricks[i].lives == 0) {
-        continue;
+    // Check three sides of the brick, depending on the ball's velocity
+    // Check front face if travelling away from the camera
+    if (ball.vel.z < 0 &&
+        moving_sphere_quad_intersect(
+          BALL_R, ball.pos, next_pos,
+          level.bricks[i].front[0], level.bricks[i].front[1], level.bricks[i].front[2], level.bricks[i].front[3],
+          &hit, &time
+        )) {
+      if (--level.bricks[i].lives > 0) {
+        ball.vel.z *= -1;
+        intersection = TRUE;
+      } else {
+        // Don't report a hit if the brick dies
+        return FALSE;
       }
+    }
 
-      // Check three sides of the brick, depending on the ball's velocity
-      // Check front face if travelling away from the camera
-      if (ball.vel.z < 0 &&
-          moving_sphere_quad_intersect(BALL_R, ball.pos, next_pos, front[0], front[1], front[2], front[3], &hit, &time)) {
-        if (--bricks[i].lives > 0) {
-          ball.vel.z *= -1;
-          intersection = TRUE;
-        } else {
-          // Don't report a hit if the brick dies
-          return FALSE;
-        }
+    // Check left face if travelling right
+    if (ball.vel.x > 0 &&
+        !intersection &&
+        moving_sphere_quad_intersect(
+          BALL_R, ball.pos, next_pos,
+          level.bricks[i].left[0], level.bricks[i].left[1], level.bricks[i].left[2], level.bricks[i].left[3],
+          &hit, &time
+        )) {
+      if (--level.bricks[i].lives > 0) {
+        ball.vel.x *= -1;
+        intersection = TRUE;
+      } else {
+        return FALSE;
       }
+    }
 
-      // Check left face if travelling right
-      if (ball.vel.x > 0 &&
-          !intersection &&
-          moving_sphere_quad_intersect(BALL_R, ball.pos, next_pos, left[0], left[1], left[2], left[3], &hit, &time)) {
-        if (--bricks[i].lives > 0) {
-          ball.vel.x *= -1;
-          intersection = TRUE;
-        } else {
-          return FALSE;
-        }
+    // Check right face if travelling left
+    if (ball.vel.x < 0 &&
+        !intersection &&
+        moving_sphere_quad_intersect(
+          BALL_R, ball.pos, next_pos,
+          level.bricks[i].right[0], level.bricks[i].right[1], level.bricks[i].right[2], level.bricks[i].right[3],
+          &hit, &time
+        )) {
+      if (--level.bricks[i].lives > 0) {
+        ball.vel.x *= -1;
+        intersection = TRUE;
+      } else {
+        return FALSE;
       }
+    }
 
-      // Check right face if travelling left
-      if (ball.vel.x < 0 &&
-          !intersection &&
-          moving_sphere_quad_intersect(BALL_R, ball.pos, next_pos, right[0], right[1], right[2], right[3], &hit, &time)) {
-        if (--bricks[i].lives > 0) {
-          ball.vel.x *= -1;
-          intersection = TRUE;
-        } else {
-          return FALSE;
-        }
+    // Check top face if travelling down
+    if (ball.vel.y < 0 &&
+        !intersection &&
+        moving_sphere_quad_intersect(
+          BALL_R, ball.pos, next_pos,
+          level.bricks[i].top[0], level.bricks[i].top[1], level.bricks[i].top[2], level.bricks[i].top[3],
+          &hit, &time
+        )) {
+      if (--level.bricks[i].lives > 0) {
+        ball.vel.y *= -1;
+        intersection = TRUE;
+      } else {
+        return FALSE;
       }
+    }
 
-      // Check top face if travelling down
-      if (ball.vel.y < 0 &&
-          !intersection &&
-          moving_sphere_quad_intersect(BALL_R, ball.pos, next_pos, top[0], top[1], top[2], top[3], &hit, &time)) {
-        if (--bricks[i].lives > 0) {
-          ball.vel.y *= -1;
-          intersection = TRUE;
-        } else {
-          return FALSE;
-        }
+    // Check bottom face if travelling up
+    if (ball.vel.y > 0 &&
+        !intersection &&
+        moving_sphere_quad_intersect(
+          BALL_R, ball.pos, next_pos,
+          level.bricks[i].bottom[0], level.bricks[i].bottom[1], level.bricks[i].bottom[2], level.bricks[i].bottom[3],
+          &hit, &time
+        )) {
+      if (--level.bricks[i].lives > 0) {
+        ball.vel.y *= -1;
+        intersection = TRUE;
+      } else {
+        return FALSE;
       }
+    }
 
-      // Check bottom face if travelling up
-      if (ball.vel.y > 0 &&
-          !intersection &&
-          moving_sphere_quad_intersect(BALL_R, ball.pos, next_pos, bottom[0], bottom[1], bottom[2], bottom[3], &hit, &time)) {
-        if (--bricks[i].lives > 0) {
-          ball.vel.y *= -1;
-          intersection = TRUE;
-        } else {
-          return FALSE;
-        }
+    // Check back face if travelling towards from the camera
+    if (ball.vel.z > 0 &&
+        !intersection &&
+        moving_sphere_quad_intersect(
+          BALL_R, ball.pos, next_pos,
+          level.bricks[i].back[0], level.bricks[i].back[1], level.bricks[i].back[2], level.bricks[i].back[3],
+          &hit, &time
+        )) {
+      if (--level.bricks[i].lives > 0) {
+        ball.vel.z *= -1;
+        intersection = TRUE;
+      } else {
+        return FALSE;
       }
+    }
 
-      // Check back face if travelling towards from the camera
-      if (ball.vel.z > 0 &&
-          !intersection &&
-          moving_sphere_quad_intersect(BALL_R, ball.pos, next_pos, back[0], back[1], back[2], back[3], &hit, &time)) {
-        if (--bricks[i].lives > 0) {
-          ball.vel.z *= -1;
-          intersection = TRUE;
-        } else {
-          return FALSE;
-        }
-      }
-
-      // If there was an intersection with any face of this brick,
-      // start the hit animation timer
-      if (intersection) {
-        bricks[i].hit_anim_timer = BRICK_HIT_ANIM_DURATION;
-        break;
-      }
+    // If there was an intersection with any face of this brick,
+    // start the hit animation timer
+    if (intersection) {
+      level.bricks[i].hit_anim_timer = BRICK_HIT_ANIM_DURATION;
+      break;
     }
   }
 
@@ -396,57 +323,10 @@ static bool handle_collision_bricks(Vec3f next_pos, float dist, Vec3f* new_next_
   return FALSE;
 }
 
-// Debug free camera
-static void update_camera_free(double dt) {
-  Vec2f rot;
-  Vec3f velocity;
-  vec2f_set(rot, 0, 0);
-  vec3f_set(velocity, 0, 0, 0);
-
-  // Rotate the camera if the C buttons are pressed
-  if (controller[0].button & L_CBUTTONS) {
-    rot.x = -1;
-  }
-  if (controller[0].button & R_CBUTTONS) {
-    rot.x = 1;
-  }
-  if (controller[0].button & U_CBUTTONS) {
-    rot.y = 1;
-  }
-  if (controller[0].button & D_CBUTTONS) {
-    rot.y = -1;
-  }
-
-  if (fabs(rot.x) > EPSILON || fabs(rot.y) > EPSILON) {
-    vec2f_mag(rot, ROT_VELOCITY);
-    camera_rotate(rot);
-  }
-
-  // Move the camera if the joystick is moved
-  if (controller[0].stick_y > DEADZONE || controller[0].stick_y < -DEADZONE) {
-    velocity.z = controller[0].stick_y;
-  }
-  if (controller[0].stick_x > DEADZONE || controller[0].stick_x < -DEADZONE) {
-    velocity.x = controller[0].stick_x;
-  }
-  if (controller[0].button & Z_TRIG || controller[0].button & L_TRIG) {
-    velocity.y = 80;
-  }
-  if (controller[0].button & R_TRIG) {
-    velocity.y = -80;
-  }
-
-  if (fabs(velocity.x) > EPSILON || fabs(velocity.y) > EPSILON || fabs(velocity.z) > EPSILON) {
-    vec3f_norm(velocity);
-    vec3f_mag(velocity, MOVE_VELOCITY);
-    camera_move(velocity);
-  }
-}
-
 static void update_camera(double dt) {
   Vec2f rot = {
-    -(paddle.obj.pos.x / PADDLE_MAX_X) * 5,
-    -(paddle.obj.pos.y / PADDLE_MAX_Y) * 5
+    -(paddle.obj.pos.x / paddle.max_x) * 5,
+    -(paddle.obj.pos.y / paddle.max_y) * 5
   };
   camera_rotate_to(rot);
   camera.pos.x = paddle.obj.pos.x * CAMERA_MOVE_SCALE;
@@ -459,7 +339,7 @@ static void update_ball(double dt) {
   bool brick_hit;
   Vec3f move;
   Vec3f next_pos, new_next_pos;
-  double dist = BALL_VELOCITY * dt;
+  double dist = BALL_BASE_VELOCITY * dt;
 
   // Project the next ball position
   move.x = ball.vel.x * dist;
@@ -495,195 +375,37 @@ static void update_ball(double dt) {
   // Otherwise, respawn the ball
   else {
     vec3f_set(ball.pos, 0, 0, UNIT_SIZE);
-    vec3f_set(ball.vel, 0, 0, BALL_START_VELOCITY);
+    vec3f_set(ball.vel, 0, 0, level.start_vel);
     live = TRUE;
   }
 }
 
-static void update_paddle(double dt) {
-  Vec3f velocity;
-  vec3f_set(velocity, 0, 0, 0);
-
-  if (controller[0].stick_y > DEADZONE || controller[0].stick_y < -DEADZONE) {
-    velocity.y = controller[0].stick_y;
-  }
-  if (controller[0].stick_x > DEADZONE || controller[0].stick_x < -DEADZONE) {
-    velocity.x = controller[0].stick_x;
-  }
-
-  if (fabs(velocity.x) > EPSILON || fabs(velocity.y) > EPSILON || fabs(velocity.z) > EPSILON) {
-    vec3f_norm(velocity);
-    vec3f_mag(velocity, MOVE_VELOCITY * dt);
-    vec3f_add(paddle.obj.pos, velocity);
-
-    // Clamp paddle position
-    if (paddle.obj.pos.x < PADDLE_MIN_X) {
-      paddle.obj.pos.x = PADDLE_MIN_X;
-    }
-    if (paddle.obj.pos.x > PADDLE_MAX_X) {
-      paddle.obj.pos.x = PADDLE_MAX_X;
-    }
-    if (paddle.obj.pos.y < PADDLE_MIN_Y) {
-      paddle.obj.pos.y = PADDLE_MIN_Y;
-    }
-    if (paddle.obj.pos.y > PADDLE_MAX_Y) {
-      paddle.obj.pos.y = PADDLE_MAX_Y;
-    }
-  }
-
-  // Tick down hit animation timer if it's running
-  if (paddle.hit_anim_timer > 0) {
-    float x;
-    paddle.hit_anim_timer -= dt;
-
-    if (paddle.hit_anim_timer < 0) {
-      paddle.hit_anim_timer = 0;
-    }
-
-    x = (PADDLE_HIT_ANIM_DURATION - paddle.hit_anim_timer) / PADDLE_HIT_ANIM_DURATION;
-
-    // Send paddle back a bit
-    vec3f_set(
-      paddle.obj.pos,
-      paddle.obj.pos.x,
-      paddle.obj.pos.y,
-      sin(M_PI * x) * -(PADDLE_HIT_ANIM_INTENSITY * 5) + (STAGE_BLOCK_W * UNIT_SIZE)
-    );
-
-    // Rotate the paddle depending on hit position
-    vec3f_set(
-      paddle.obj.rot,
-      sin(M_PI * x) * paddle.hit_rot.x,
-      sin(M_PI * x) * paddle.hit_rot.y,
-      0
-    );
-  }
-}
-
-static void update_bricks(double dt) {
-  int i;
-
-  for (i = 0; i < NUM_BRICKS; i++) {
-    // Tick down death animation timer if it's running
-    if (bricks[i].lives == 0 && bricks[i].death_anim_timer > 0) {
-      bricks[i].death_anim_timer -= dt;
-
-      if (bricks[i].death_anim_timer < 0) {
-        bricks[i].death_anim_timer = 0;
-      }
-
-      bricks[i].obj.scale = (bricks[i].death_anim_timer / BRICK_DEATH_ANIM_DURATION);
-    }
-
-    // Tick down hit animation timer if it's running
-    if (bricks[i].hit_anim_timer > 0) {
-      bricks[i].hit_anim_timer -= dt;
-
-      if (bricks[i].hit_anim_timer < 0) {
-        bricks[i].hit_anim_timer = 0;
-      }
-
-      vec3f_set(
-        bricks[i].obj.rot,
-        sin(2 * M_PI * ((BRICK_HIT_ANIM_DURATION - bricks[i].hit_anim_timer) / BRICK_HIT_ANIM_DURATION)) * 10.0,
-        0,
-        sin(4 * M_PI * ((BRICK_HIT_ANIM_DURATION - bricks[i].hit_anim_timer) / BRICK_HIT_ANIM_DURATION)) * 6.0
-      );
-    }
-  }
-}
-
-// Precalculate wall planes for easier collision detection
-static void init_walls() {
-  Vec3f left[] = {
-    {BALL_MIN_X, BALL_MAX_Y, BALL_MAX_Z},
-    {BALL_MIN_X, BALL_MAX_Y, BALL_MIN_Z},
-    {BALL_MIN_X, BALL_MIN_Y, BALL_MAX_Z}
-  };
-  Vec3f right[] = {
-    {BALL_MAX_X, BALL_MAX_Y, BALL_MIN_Z},
-    {BALL_MAX_X, BALL_MAX_Y, BALL_MAX_Z},
-    {BALL_MAX_X, BALL_MIN_Y, BALL_MIN_Z}
-  };
-  Vec3f top[] = {
-    {BALL_MIN_X, BALL_MAX_Y, BALL_MAX_Z},
-    {BALL_MAX_X, BALL_MAX_Y, BALL_MAX_Z},
-    {BALL_MIN_X, BALL_MAX_Y, BALL_MIN_Z}
-  };
-  Vec3f bottom[] = {
-    {BALL_MIN_X, BALL_MIN_Y, BALL_MIN_Z},
-    {BALL_MAX_X, BALL_MIN_Y, BALL_MIN_Z},
-    {BALL_MIN_X, BALL_MIN_Y, BALL_MAX_Z}
-  };
-  Vec3f front[] = {
-    {BALL_MAX_X, BALL_MAX_Y, BALL_MAX_Z},
-    {BALL_MIN_X, BALL_MAX_Y, BALL_MAX_Z},
-    {BALL_MAX_X, BALL_MIN_Y, BALL_MAX_Z}
-  };
-  Vec3f back[] = {
-    {BALL_MIN_X, BALL_MAX_Y, BALL_MIN_Z},
-    {BALL_MAX_X, BALL_MAX_Y, BALL_MIN_Z},
-    {BALL_MIN_X, BALL_MIN_Y, BALL_MIN_Z}
-  };
-  walls[SIDE_LEFT] = plane_from_points(left[0], left[1], left[2]);
-  walls[SIDE_RIGHT] = plane_from_points(right[0], right[1], right[2]);
-  walls[SIDE_TOP] = plane_from_points(top[0], top[1], top[2]);
-  walls[SIDE_BOTTOM] = plane_from_points(bottom[0], bottom[1], bottom[2]);
-  walls[SIDE_FRONT] = plane_from_points(front[0], front[1], front[2]);
-  walls[SIDE_BACK] = plane_from_points(back[0], back[1], back[2]);
-}
-
 void game_init(void) {
-  int i;
-
-  camera_init();
+  // Load level data
+  level = level_load(level_data[current_level]);
 
   // Initialize stage
   vec3f_set(stage.pos, 0, 0, 0);
   vec3f_set(stage.rot, 0, 0, 0);
   vec3f_set(stage.vel, 0, 0, 0);
-  stage.scale = STAGE_BLOCK_W;
+  stage.scale = level.width;
 
   // Initialize paddle
-  vec3f_set(paddle.obj.pos, 0, 0, STAGE_BLOCK_W * UNIT_SIZE);
-  vec3f_set(paddle.obj.rot, 0, 0, 0);
-  vec3f_set(paddle.obj.vel, 0, 0, 0);
-  paddle.obj.scale = 2;
-  paddle.hit_anim_timer = 0;
-  paddle.held = FALSE;
+  paddle_init(&paddle, &level);
 
   // Initialize ball
   vec3f_set(ball.pos, 0, 0, 450);
   vec3f_set(ball.rot, 0, 0, 0);
-  vec3f_set(ball.vel, 0, 0, BALL_START_VELOCITY);
+  vec3f_set(ball.vel, 0, 0, level.start_vel);
   ball.scale = 1;
 
-  // Initialize bricks
-  for (i = 0; i < NUM_BRICKS; i++) {
-    float x = -(STAGE_BLOCK_W * BRICK_R - BRICK_R) + ((i % STAGE_BLOCK_W) * BRICK_W);
-    float y = -(STAGE_BLOCK_W * BRICK_R - BRICK_R) + ((i / STAGE_BLOCK_W) * BRICK_W);
-
-    vec3f_set(bricks[i].obj.pos, x, y, 0);
-    vec3f_set(bricks[i].obj.rot, 0, 0, 0);
-    bricks[i].obj.scale = 1;
-
-    // Precalculate faces for easier collision detection
-    bricks[i].left = x - BRICK_R;
-    bricks[i].right = x + BRICK_R;
-    bricks[i].top = y + BRICK_R;
-    bricks[i].bottom = y - BRICK_R;
-    bricks[i].back = -BRICK_R;
-    bricks[i].front = BRICK_R;
-
-    bricks[i].lives = 3;
-    bricks[i].death_anim_timer = BRICK_DEATH_ANIM_DURATION;
-  }
-
-  // Precalculate wall planes
-  init_walls();
+  // Initialize camera
+  camera_init();
 }
 
 void game_update(double dt) {
+  int i;
+
   // Check for a pause button press
   if (controller[0].trigger & START_BUTTON) {
     paused = !paused;
@@ -693,7 +415,7 @@ void game_update(double dt) {
     return;
   }
 
-  update_paddle(dt);
+  paddle_update(&paddle, &level, dt);
 
   // Check if the ball is held
   if (paddle.held) {
@@ -710,7 +432,11 @@ void game_update(double dt) {
   }
 
   update_camera(dt);
-  update_bricks(dt);
+
+  // Update bricks
+  for (i = 0; i < level.num_bricks; i++) {
+    brick_update(&level.bricks[i], dt);
+  }
 }
 
 void game_draw(void) {
@@ -725,20 +451,20 @@ void game_draw(void) {
 
   // Draw opaque objects first
   // Begin with the bricks
-  for (i = 0; i < NUM_BRICKS; i++) {
-    switch (bricks[i].lives) {
+  for (i = 0; i < level.num_bricks; i++) {
+    switch (level.bricks[i].lives) {
       case 3:
-        graphics_draw_textured_object(&(bricks[i].obj), brick_Cube_mesh_green, FALSE);
+        graphics_draw_textured_object(&(level.bricks[i].obj), brick_Cube_mesh_green, FALSE);
         break;
       case 2:
-        graphics_draw_textured_object(&(bricks[i].obj), brick_Cube_mesh_orange, FALSE);
+        graphics_draw_textured_object(&(level.bricks[i].obj), brick_Cube_mesh_orange, FALSE);
         break;
       case 1:
-        graphics_draw_textured_object(&(bricks[i].obj), brick_Cube_mesh_pink, FALSE);
+        graphics_draw_textured_object(&(level.bricks[i].obj), brick_Cube_mesh_pink, FALSE);
         break;
       case 0:
-        if (bricks[i].death_anim_timer > 0) {
-          graphics_draw_textured_object(&(bricks[i].obj), brick_Cube_mesh_pink, FALSE);
+        if (level.bricks[i].death_anim_timer > 0) {
+          graphics_draw_textured_object(&(level.bricks[i].obj), brick_Cube_mesh_pink, FALSE);
         }
         break;
       default:

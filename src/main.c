@@ -1,6 +1,8 @@
 #include <nusys.h>
 #include "game.h"
 
+char heap[1024 * 512 * 1];
+
 NUContData controller[1];
 
 static OSTime last;
@@ -25,6 +27,8 @@ static void vsync_callback(int pending) {
 void mainproc(void* dummy) {
   nuGfxInit();
   nuContInit();
+
+  InitHeap(heap, sizeof(heap));
 
   game_init();
 
