@@ -5,7 +5,7 @@ INCDIR = include
 OBJDIR = build
 DATADIR = data
 
-TARGET = demo
+TARGET = brick64
 
 CODEFILES = $(wildcard $(SRCDIR)\*.c) 
 CODEOBJECTS = $(subst $(SRCDIR),$(OBJDIR),$(CODEFILES:.c=.o)) $(NUOBJ)
