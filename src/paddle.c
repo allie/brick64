@@ -3,7 +3,7 @@
 extern NUContData controller[1];
 
 void paddle_init(Paddle* paddle, Level* level) {
-  vec3f_set(paddle->obj.pos, 0, 0, level->width * UNIT_SIZE);
+  vec3f_set(paddle->obj.pos, 0, 0, level->bounds[SIDE_FRONT]);
   vec3f_set(paddle->obj.rot, 0, 0, 0);
   vec3f_set(paddle->obj.vel, 0, 0, 0);
   paddle->obj.scale = 2;

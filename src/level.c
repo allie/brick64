@@ -33,12 +33,12 @@ Level level_load(LevelData* data) {
         level.bricks[i].obj.scale = 1;
 
         // Precalculate face quads for easier collision detection
-        left = x - BRICK_R;
-        right = x + BRICK_R;
-        top = y + BRICK_R;
-        bottom = y - BRICK_R;
-        back = -BRICK_R;
-        front = BRICK_R;
+        left = level.bricks[i].obj.pos.x - BRICK_R;
+        right = level.bricks[i].obj.pos.x + BRICK_R;
+        top = level.bricks[i].obj.pos.y + BRICK_R;
+        bottom = level.bricks[i].obj.pos.y - BRICK_R;
+        back = level.bricks[i].obj.pos.z - BRICK_R;
+        front = level.bricks[i].obj.pos.z + BRICK_R;
 
         // Left face
         vec3f_set(level.bricks[i].left[0], left, top, back);
@@ -77,7 +77,10 @@ Level level_load(LevelData* data) {
         vec3f_set(level.bricks[i].front[3], right, bottom, front);
 
         level.bricks[i].lives = data->bricks[i];
-        level.bricks[i].death_anim_timer = BRICK_DEATH_ANIM_DURATION;
+
+        if (level.bricks[i].lives > 0) {
+          level.bricks[i].death_anim_timer = BRICK_DEATH_ANIM_DURATION;
+        }
       }
     }
   }
@@ -88,7 +91,7 @@ Level level_load(LevelData* data) {
   level.bounds[SIDE_TOP] = level.height * BRICK_W / 2;
   level.bounds[SIDE_BOTTOM] = -level.height * BRICK_W / 2;
   level.bounds[SIDE_BACK] = -level.width * BRICK_W / 2;
-  level.bounds[SIDE_FRONT] = level.width * BRICK_W / 2;
+  level.bounds[SIDE_FRONT] = level.width * BRICK_W;
 
   // Precalculate wall planes
   {
