@@ -81,6 +81,38 @@ Level level_load(LevelData* data) {
         if (level.bricks[i].lives > 0) {
           level.bricks[i].death_anim_timer = BRICK_DEATH_ANIM_DURATION;
         }
+
+        // Store pointers to neighbouring cubes for easier access to them
+        if (x > 0) {
+          level.bricks[i].neighbours[SIDE_LEFT] = &level.bricks[flatten3D(x - 1, y, z, level.width, level.height)];
+        } else {
+          level.bricks[i].neighbours[SIDE_LEFT] = NULL;
+        }
+        if (x < level.width - 1) {
+          level.bricks[i].neighbours[SIDE_RIGHT] = &level.bricks[flatten3D(x + 1, y, z, level.width, level.height)];
+        } else {
+          level.bricks[i].neighbours[SIDE_RIGHT] = NULL;
+        }
+        if (y > 0) {
+          level.bricks[i].neighbours[SIDE_BOTTOM] = &level.bricks[flatten3D(x, y - 1, z, level.width, level.height)];
+        } else {
+          level.bricks[i].neighbours[SIDE_BOTTOM] = NULL;
+        }
+        if (y < level.height - 1) {
+          level.bricks[i].neighbours[SIDE_TOP] = &level.bricks[flatten3D(x, y + 1, z, level.width, level.height)];
+        } else {
+          level.bricks[i].neighbours[SIDE_TOP] = NULL;
+        }
+        if (z > 0) {
+          level.bricks[i].neighbours[SIDE_BACK] = &level.bricks[flatten3D(x, y, z - 1, level.width, level.height)];
+        } else {
+          level.bricks[i].neighbours[SIDE_BACK] = NULL;
+        }
+        if (z < level.depth - 1) {
+          level.bricks[i].neighbours[SIDE_FRONT] = &level.bricks[flatten3D(x, y, z + 1, level.width, level.height)];
+        } else {
+          level.bricks[i].neighbours[SIDE_FRONT] = NULL;
+        }
       }
     }
   }

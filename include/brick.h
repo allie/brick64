@@ -18,7 +18,9 @@
 #define BRICK_DEATH_ANIM_DURATION 0.1
 #define BRICK_HIT_ANIM_DURATION 0.1
 
-typedef struct {
+typedef struct Brick Brick;
+
+struct Brick {
   Vec3f left[4];
   Vec3f right[4];
   Vec3f top[4];
@@ -29,8 +31,10 @@ typedef struct {
   Object obj;
   double death_anim_timer;
   double hit_anim_timer;
-} Brick;
+  Brick* neighbours[6];
+};
 
 void brick_update(Brick* brick, double dt);
+void brick_kill_contiguous(Brick* brick);
 
 #endif

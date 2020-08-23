@@ -28,3 +28,18 @@ void brick_update(Brick* brick, double dt) {
     );
   }
 }
+
+// Kill a brick and all contiguous bricks that are on their last life
+void brick_kill_contiguous(Brick* brick) {
+  int i;
+
+  if (brick == NULL || brick->lives != 1) {
+    return;
+  }
+
+  brick->lives = 0;
+
+  for (i = 0; i < 6; i++) {
+    brick_kill_contiguous(brick->neighbours[i]);
+  }
+}

@@ -203,11 +203,12 @@ static bool handle_collision_bricks(Vec3f next_pos, float dist, Vec3f* new_next_
           level.bricks[i].front[0], level.bricks[i].front[1], level.bricks[i].front[2], level.bricks[i].front[3],
           &hit, &time
         )) {
-      if (--level.bricks[i].lives > 0) {
+      if (level.bricks[i].lives > 1) {
         ball.vel.z *= -1;
         intersection = TRUE;
       } else {
         // Don't report a hit if the brick dies
+        brick_kill_contiguous(&level.bricks[i]);
         return FALSE;
       }
     }
@@ -220,10 +221,11 @@ static bool handle_collision_bricks(Vec3f next_pos, float dist, Vec3f* new_next_
           level.bricks[i].left[0], level.bricks[i].left[1], level.bricks[i].left[2], level.bricks[i].left[3],
           &hit, &time
         )) {
-      if (--level.bricks[i].lives > 0) {
+      if (level.bricks[i].lives > 1) {
         ball.vel.x *= -1;
         intersection = TRUE;
       } else {
+        brick_kill_contiguous(&level.bricks[i]);
         return FALSE;
       }
     }
@@ -236,10 +238,11 @@ static bool handle_collision_bricks(Vec3f next_pos, float dist, Vec3f* new_next_
           level.bricks[i].right[0], level.bricks[i].right[1], level.bricks[i].right[2], level.bricks[i].right[3],
           &hit, &time
         )) {
-      if (--level.bricks[i].lives > 0) {
+      if (level.bricks[i].lives > 1) {
         ball.vel.x *= -1;
         intersection = TRUE;
       } else {
+        brick_kill_contiguous(&level.bricks[i]);
         return FALSE;
       }
     }
@@ -252,10 +255,11 @@ static bool handle_collision_bricks(Vec3f next_pos, float dist, Vec3f* new_next_
           level.bricks[i].top[0], level.bricks[i].top[1], level.bricks[i].top[2], level.bricks[i].top[3],
           &hit, &time
         )) {
-      if (--level.bricks[i].lives > 0) {
+      if (level.bricks[i].lives > 1) {
         ball.vel.y *= -1;
         intersection = TRUE;
       } else {
+        brick_kill_contiguous(&level.bricks[i]);
         return FALSE;
       }
     }
@@ -268,10 +272,11 @@ static bool handle_collision_bricks(Vec3f next_pos, float dist, Vec3f* new_next_
           level.bricks[i].bottom[0], level.bricks[i].bottom[1], level.bricks[i].bottom[2], level.bricks[i].bottom[3],
           &hit, &time
         )) {
-      if (--level.bricks[i].lives > 0) {
+      if (level.bricks[i].lives > 1) {
         ball.vel.y *= -1;
         intersection = TRUE;
       } else {
+        brick_kill_contiguous(&level.bricks[i]);
         return FALSE;
       }
     }
@@ -284,10 +289,11 @@ static bool handle_collision_bricks(Vec3f next_pos, float dist, Vec3f* new_next_
           level.bricks[i].back[0], level.bricks[i].back[1], level.bricks[i].back[2], level.bricks[i].back[3],
           &hit, &time
         )) {
-      if (--level.bricks[i].lives > 0) {
+      if (level.bricks[i].lives > 1) {
         ball.vel.z *= -1;
         intersection = TRUE;
       } else {
+        brick_kill_contiguous(&level.bricks[i]);
         return FALSE;
       }
     }
@@ -295,6 +301,7 @@ static bool handle_collision_bricks(Vec3f next_pos, float dist, Vec3f* new_next_
     // If there was an intersection with any face of this brick,
     // start the hit animation timer
     if (intersection) {
+      level.bricks[i].lives--;
       level.bricks[i].hit_anim_timer = BRICK_HIT_ANIM_DURATION;
       break;
     }
